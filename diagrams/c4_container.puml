@@ -1,0 +1,67 @@
+@startuml C4-Container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Система обнаружения мошенничества – C4 Container Diagram
+LAYOUT_WITH_LEGEND()
+
+Person(expert, "Эксперт", "Специалист в предметной области")
+Person(admin, "Администратор", "Управление моделями и правилами")
+
+System_Ext(paymentGateway, "Платежный шлюз")
+System_Ext(identityService, "Customer Data Platform")
+System_Ext(notificationService, "Сервис уведомлений")
+System_Ext(regulatorySystem, "Регуляторная система")
+
+System_Boundary(fraud, "Fraud Detection Platform") {
+
+    Container(apiGateway, "Fraud Detection API", "REST",\
+        "Синхронная проверка")
+
+    SystemQueue(kafka, "Брокер сообщений", "Apache Kafka",\
+        "Журнал всех транзакций и событий")
+
+    Container(speedProcessor, "Потоковая обработка", "Spark Streaming",\
+        "Асинхронная проверка")
+
+    Container(batchProcessor, "Пакетная обработка", "Spark",\
+        "Инкрементальное обучение и точная классификация")
+
+    Container(mlModel, "ML Model", "Python",\
+        "Классификация транзакций")
+
+    Container(speedDB, "Хранилище потоковой обработки", "Cassandra",\
+        "Быстрые (неточные) результаты")
+
+    Container(servingDB, "Витрина данных", "Cassandra",\
+        "Точные батч-результаты")
+
+    Container(dataLake, "Хранилище событий", "S3",\
+        "История всех транзакций")
+}
+
+Rel_D(paymentGateway, apiGateway, "Отправка транзакции", "REST")
+Rel_D(paymentGateway, kafka, "Публикация события", "Kafka")
+
+Rel(kafka, speedProcessor, "Потоковая обработка")
+Rel(speedProcessor, mlModel, "Классификация транзакции")
+Rel(speedProcessor, speedDB, "Запись результатов")
+Rel(speedProcessor, kafka, "Публикация результатов")
+Rel_U(apiGateway, paymentGateway, "Отправка результатов проверки", "REST")
+Rel_U(kafka, paymentGateway, "Результат проверки")
+
+Rel(apiGateway, mlModel, "Синхронная обработка")
+Rel(apiGateway, speedDB, "Запись результатов")
+
+Rel(kafka, dataLake, "Сырые события")
+Rel(dataLake, batchProcessor, "Исторические данные")
+Rel(batchProcessor, mlModel, "Пакетная обработка")
+Rel(batchProcessor, servingDB, "Точные результаты")
+
+Rel_U(admin, mlModel, "Управляет моделью")
+Rel_U(expert, servingDB, "Анализирует прецеденты")
+
+Rel(fraud, identityService, "Получение данных о пользователях")
+Rel(kafka, notificationService, "Отправка уведомлений")
+Rel(batchProcessor, regulatorySystem, "Публикация отчетов")
+
+@enduml
