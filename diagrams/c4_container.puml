@@ -46,6 +46,7 @@ Rel(kafka, speedProcessor, "Потоковая обработка")
 Rel(speedProcessor, mlModel, "Классификация транзакции")
 Rel(speedProcessor, speedDB, "Запись результатов")
 Rel(speedProcessor, kafka, "Публикация результатов")
+Rel(apiGateway, dataLake, "Сырые события")
 Rel_U(apiGateway, paymentGateway, "Отправка результатов проверки", "REST")
 Rel_U(kafka, paymentGateway, "Результат проверки")
 
@@ -56,6 +57,8 @@ Rel(kafka, dataLake, "Сырые события")
 Rel(dataLake, batchProcessor, "Исторические данные")
 Rel(batchProcessor, mlModel, "Пакетная обработка")
 Rel(batchProcessor, servingDB, "Точные результаты")
+Rel(batchProcessor, notificationService, "Отправка уведомлений")
+
 
 Rel_U(admin, mlModel, "Управляет моделью")
 Rel_U(expert, servingDB, "Анализирует прецеденты")
