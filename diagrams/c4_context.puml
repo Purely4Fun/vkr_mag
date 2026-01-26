@@ -1,0 +1,36 @@
+@startuml C4-Context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title Система обнаружения мошенничества - C4 Context Diagram
+LAYOUT_WITH_LEGEND()
+
+Person(customer, "Пользователь", "Человек, совершающий транзакции")
+Person(expert, "Эксперт", "Специалист в данной предметной области")
+Person(admin, "Администратор", "Управление правилами, моделью и системой")
+
+System_Ext(paymentGateway, "Платежный шлюз", "Процессинг и осуществление платежей")
+System_Ext(coreBanking, "Автоматизированная банковская система", "Учет транзакций и балансов пользователей")
+System_Ext(notificationService, "Сервис уведомлений", "SMS, Email, Push")
+System_Ext(identityService, "Customer Data Platform", "Данные о клиентах")
+System_Ext(regulatorySystem, "Регуляторная система", "Регуляторная отчетность")
+
+System_Boundary(fraudBoundary, "Fraud Detection Platform") {
+    System(fraudSystem, "Fraud Detection System", "ML-платформа для обнаружения мошенничества в режиме реального времени")
+}
+
+Rel(customer, paymentGateway, "Инициализация платежа")
+Rel(paymentGateway, fraudSystem, "Отправка транзакции на проверку", "API")
+Rel(fraudSystem, paymentGateway, "Результат проверки транзакции", "API")
+
+Rel(paymentGateway, coreBanking, "Проводка и расчет подтвержденных транзакций")
+
+Rel(fraudSystem, identityService, "Дубликация клиентских данных", "API/Message Broker/Data Mart")
+Rel(fraudSystem, notificationService, "Отправка уведомлений", "API/Message Broker")
+Rel(notificationService, customer, "Уведомление о проведении/отклонении транзакции")
+
+Rel(expert, fraudSystem, "Просматривает прецеденты и управляет знаниями", "АРМ Эксперта")
+Rel(admin, fraudSystem, "Управляет моделями, правилами и конфигурацией системы", "АРМ Администратора")
+
+Rel(fraudSystem, regulatorySystem, "Передает отчеты о случаях мошенничества", "API/Data Mart/Message Broker")
+
+@enduml
