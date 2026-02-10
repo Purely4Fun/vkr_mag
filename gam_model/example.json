@@ -1,0 +1,17 @@
+{
+  "account": {
+    "ACCOUNT_ID": 123,
+    "CUSTOMER_ID": "C_42",
+    "INIT_BALANCE": 15000,
+    "COUNTRY": "DE",
+    "ACCOUNT_TYPE": "I",
+    "TX_BEHAVIOR_ID": 7
+  },
+  "transaction": {
+    "SENDER_ACCOUNT_ID": 123,
+    "RECEIVER_ACCOUNT_ID": 987,
+    "TX_TYPE": "TRANSFER",
+    "TX_AMOUNT": 250.75,
+    "TIMESTAMP": 1708001234
+  }
+}
