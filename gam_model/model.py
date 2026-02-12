@@ -1,11 +1,9 @@
 import numpy as np
 import joblib
-from datetime import datetime, timezone
 
 SECONDS_IN_DAY = 24 * 60 * 60
 TWO_PI_OVER_DAY = 2 * np.pi / SECONDS_IN_DAY
 
-MODEL_NAME = "GAM_v1"
 MODEL_DIR = "./gam_model/joblibs"
 
 gam = joblib.load(f"{MODEL_DIR}/gam_model.joblib")
@@ -56,19 +54,6 @@ def build_features(payload):
 
     return X
 
-def predict_proba(payload):
-    X = build_features(payload)
-    return float(gam.predict_proba(X)[0])
-
-
 def predict(payload):
-    score = predict_proba(payload)
-    is_fraud = int(score >= threshold)
-
-    return {
-        "is_fraud": is_fraud,
-        "fraud_score": round(score, 6),
-        "threshold": round(float(threshold), 6),
-        "model": MODEL_NAME,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
+    score = float(gam.predict_proba(payload)[0])
+    return score >= threshold, score, threshold
