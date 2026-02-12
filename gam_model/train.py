@@ -8,9 +8,9 @@ from sklearn.metrics import (
     confusion_matrix,
     precision_recall_curve
 )
-POS_WEIGHT = 500         
-TARGET_FP_COST = 7
-MAX_TRAIN_SAMPLES = 500000
+POS_WEIGHT = 10        
+TARGET_FP_COST = 3
+MAX_TRAIN_SAMPLES = 1058587
 RANDOM_STATE = 42
 MODEL_DIR = './gam_model'
 
@@ -53,8 +53,8 @@ def subsample(X, y, max_samples=MAX_TRAIN_SAMPLES):
 
 def build_gam(feature_names):
     terms = (
-        s(0, n_splines=6) + 
-        s(1, n_splines=6) +
+        s(0, n_splines=8) + 
+        s(1, n_splines=8) +
         l(2) +
         l(3)
     )
@@ -64,7 +64,7 @@ def build_gam(feature_names):
 
     return LogisticGAM(
         terms,
-        max_iter=500,
+        max_iter=1000,
         verbose=True
     )
 
