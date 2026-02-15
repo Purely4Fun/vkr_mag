@@ -1,5 +1,6 @@
 '''
 Request example:
+uvicorn api.endpoint_predict:app --reload --loop asyncio
 
     curl -X POST http://localhost:8000/predict \
     -H "Content-Type: application/json" \
