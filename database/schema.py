@@ -30,9 +30,9 @@ session.execute("""
 CREATE TABLE IF NOT EXISTS alerts (
     alert_type TEXT,
     alert_timestamp TIMESTAMP,
-    alert_id INT,
+    alert_id UUID,
     is_fraud BOOLEAN,
-    tx_id INT,
+    tx_id UUID,
     sender_account_id INT,
     receiver_account_id INT,
     tx_type TEXT,
@@ -43,40 +43,40 @@ CREATE TABLE IF NOT EXISTS alerts (
 
 session.execute("""
 CREATE TABLE IF NOT EXISTS transactions (
-    tx_id INT,
+    tx_id UUID,
     tx_timestamp TIMESTAMP,
     sender_account_id INT,
     receiver_account_id INT,
     tx_type TEXT,
     tx_amount DOUBLE,
     is_fraud BOOLEAN,
-    alert_id INT,
+    alert_id UUID,
     PRIMARY KEY ((tx_id), tx_timestamp)
 ) WITH CLUSTERING ORDER BY (tx_timestamp DESC);
 """)
 
 session.execute("""
 CREATE TABLE IF NOT EXISTS transactions_by_sender (
-    sender_account_id uuid,
+    sender_account_id int,
     tx_timestamp timestamp,
-    tx_id uuid,
-    receiver_account_id uuid,
+    tx_id UUID,
+    receiver_account_id int,
     tx_type text,
-    tx_amount decimal,
+    tx_amount double,
     is_fraud boolean,
-    alert_id uuid,
+    alert_id UUID,
     PRIMARY KEY ((sender_account_id), tx_timestamp, tx_id)
 ) WITH CLUSTERING ORDER BY (tx_timestamp DESC, tx_id ASC);
 """)
 
 session.execute("""
 CREATE TABLE IF NOT EXISTS transactions_by_receiver (
-    receiver_account_id uuid,
+    receiver_account_id int,
     tx_timestamp timestamp,
     tx_id uuid,
-    sender_account_id uuid,
+    sender_account_id int,
     tx_type text,
-    tx_amount decimal,
+    tx_amount double,
     is_fraud boolean,
     alert_id uuid,
     PRIMARY KEY ((receiver_account_id), tx_timestamp, tx_id)
@@ -110,9 +110,9 @@ session.execute("""
 CREATE TABLE IF NOT EXISTS alerts (
     alert_type TEXT,
     alert_timestamp TIMESTAMP,
-    alert_id INT,
+    alert_id UUID,
     is_fraud BOOLEAN,
-    tx_id INT,
+    tx_id UUID,
     sender_account_id INT,
     receiver_account_id INT,
     tx_type TEXT,
@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS alerts (
 
 session.execute("""
 CREATE TABLE IF NOT EXISTS transactions (
-    tx_id INT,
+    tx_id UUID,
     tx_timestamp TIMESTAMP,
     sender_account_id INT,
     receiver_account_id INT,
@@ -133,19 +133,19 @@ CREATE TABLE IF NOT EXISTS transactions (
     is_fraud_speed BOOLEAN,
     speed_layer_score DOUBLE,
     speed_layer_treshold DOUBLE,
-    alert_id INT,
+    alert_id UUID,
     PRIMARY KEY ((tx_id), tx_timestamp)
 ) WITH CLUSTERING ORDER BY (tx_timestamp DESC);
 """)
 
 session.execute("""
 CREATE TABLE IF NOT EXISTS transactions_by_sender (
-    sender_account_id uuid,
+    sender_account_id int,
     tx_timestamp timestamp,
     tx_id uuid,
-    receiver_account_id uuid,
+    receiver_account_id int,
     tx_type text,
-    tx_amount decimal,
+    tx_amount double,
     is_fraud boolean,
     is_fraud_speed BOOLEAN,
     speed_layer_score DOUBLE,
@@ -157,12 +157,12 @@ CREATE TABLE IF NOT EXISTS transactions_by_sender (
 
 session.execute("""
 CREATE TABLE IF NOT EXISTS transactions_by_receiver (
-    receiver_account_id uuid,
+    receiver_account_id int,
     tx_timestamp timestamp,
     tx_id uuid,
-    sender_account_id uuid,
+    sender_account_id int,
     tx_type text,
-    tx_amount decimal,
+    tx_amount double,
     is_fraud boolean,
     is_fraud_speed BOOLEAN,
     speed_layer_score DOUBLE,
