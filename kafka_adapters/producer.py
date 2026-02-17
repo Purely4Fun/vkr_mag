@@ -1,8 +1,8 @@
 import json
 from kafka import KafkaProducer
 
-KAFKA_BROKER = "localhost:9092"
-OUTPUT_TOPIC = "prediction.results"
+KAFKA_BROKER = "localhost:9094"
+OUTPUT_TOPIC = "results"
 
 producer = KafkaProducer(
     bootstrap_servers=KAFKA_BROKER,

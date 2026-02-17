@@ -1,3 +1,10 @@
+'''
+message example:
+{"SENDER_ACCOUNT_ID":9876,"RECEIVER_ACCOUNT_ID":6789,"TX_TYPE":"TRANSFER","TX_AMOUNT":333.44,"TIMESTAMP":1708001234}
+
+docker exec -it kafka bash -c "export PATH=\$PATH:/opt/kafka/bin && kafka-console-producer.sh --topic transactions --bootstrap-server kafka:9092"
+
+'''
 import json
 from datetime import datetime, timezone
 from kafka import KafkaConsumer
@@ -6,8 +13,8 @@ from gam_model.model import predict, build_features
 from s3.storage import save_transaction_to_s3
 from kafka_adapters.producer import send_prediction
 
-KAFKA_BROKER = "localhost:9092"
-INPUT_TOPIC = "prediction.transactions"
+KAFKA_BROKER = "localhost:9094"
+INPUT_TOPIC = "transactions"
 CONSUMER_GROUP = "fraud-speed-layer"
 
 consumer = KafkaConsumer(
@@ -50,6 +57,7 @@ def process_transaction(message: dict) -> dict:
 
 
 def start():
+    print("Init")
     for msg in consumer:
         try:
             message = msg.value
