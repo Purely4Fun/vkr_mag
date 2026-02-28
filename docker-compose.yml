@@ -24,28 +24,27 @@ services:
       - kafka_data:/kafka-logs
 
   spark-master:
-    image: bitnamilegacy/spark:4.0.0-debian-12-r20
+    image: apache/spark:3.5.1
     container_name: spark-master
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
     environment:
-      - SPARK_MODE=master
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_PORT=7077
+      - SPARK_PUBLIC_DNS=localhost
     ports:
       - "8080:8080"
       - "7077:7077"
 
   spark-worker:
-    image: bitnamilegacy/spark:4.0.0-debian-12-r20
+    image: apache/spark:3.5.1
     container_name: spark-worker
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
     depends_on:
       - spark-master
     environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2g
+      - SPARK_PUBLIC_DNS=localhost
     ports:
       - "8081:8081"
 
