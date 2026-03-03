@@ -1,15 +1,26 @@
 import os
 import numpy as np
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, abs as spark_abs, log1p, sin, cos, lit
-from pyspark.ml.feature import StringIndexer, OneHotEncoder, VectorAssembler
-from pyspark.ml import Pipeline
-from pyspark.sql.types import IntegerType
 
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import (
+    col, abs as spark_abs, log1p, sin, cos, lit,
+    lag, count, avg, stddev, when
+)
+from pyspark.sql.types import IntegerType
+from pyspark.sql.window import Window
+from pyspark.ml.feature import StringIndexer, VectorAssembler
+from pyspark.ml import Pipeline
+
+from sklearn.model_selection import train_test_split
+
+SEED = 1212
 MODEL_DIR = "./xgb_model"
-RANDOM_STATE = 42
-TOP_K_COUNTRIES = 20
 AMOUNT_EPS = 1e-6
+
+
+# ============================================================
+# Spark
+# ============================================================
 
 def get_spark():
     return (
@@ -20,35 +31,28 @@ def get_spark():
         .getOrCreate()
     )
 
+
+# ============================================================
+# Load
+# ============================================================
+
 def load_data(spark, predictions_path, transactions_path, accounts_path):
     pred = spark.read.csv(predictions_path, header=True, inferSchema=True)
     tx = spark.read.csv(transactions_path, header=True, inferSchema=True)
     acc = spark.read.csv(accounts_path, header=True, inferSchema=True)
     return pred, tx, acc
 
-def deduplicate_columns(df):
-    seen = {}
-    new_names = []
-    for c in df.columns:
-        if c not in seen:
-            seen[c] = 0
-            new_names.append(c)
-        else:
-            seen[c] += 1
-            new_names.append(f"{c}_dup{seen[c]}")
-    return df.toDF(*new_names)
+
+# ============================================================
+# Matching (твоя логика)
+# ============================================================
 
 def match_transactions(pred, tx):
-    pred = pred.withColumnRenamed("transaction.TX_ID", "TX_ID_pred") \
-               .withColumnRenamed("transaction.SENDER_ACCOUNT_ID", "SENDER_ACCOUNT_ID") \
+    pred = pred.withColumnRenamed("transaction.SENDER_ACCOUNT_ID", "SENDER_ACCOUNT_ID") \
                .withColumnRenamed("transaction.RECEIVER_ACCOUNT_ID", "RECEIVER_ACCOUNT_ID") \
                .withColumnRenamed("transaction.TX_TYPE", "TX_TYPE") \
                .withColumnRenamed("transaction.TX_AMOUNT", "TX_AMOUNT") \
                .withColumnRenamed("transaction.TIMESTAMP", "TIMESTAMP")
-
-    tx = tx.withColumnRenamed("TX_ID", "TX_ID_tx")
-    print("pred count:", pred.count())
-    print("tx count:", tx.count())
 
     p = pred.alias("p")
     t = tx.alias("t")
@@ -65,40 +69,94 @@ def match_transactions(pred, tx):
         how="inner"
     )
 
-    t_unique_cols = [c for c in t.columns if c not in p.columns]
-
+    # ✅ ЖЁСТКО формируем схему
     joined = joined.select(
-        *[col(f"p.{c}") for c in p.columns],
-        *[col(f"t.{c}") for c in t_unique_cols],
+        *[col(f"p.{c}").alias(c) for c in pred.columns],
+        col("t.IS_FRAUD").alias("TX_IS_FRAUD")
     )
-    print("joined count:", joined.count())
 
     return joined
 
+
+# ============================================================
+# Features (твои — без изменений)
+# ============================================================
+
 def add_time_features(df):
     seconds_in_day = 24 * 60 * 60
-    return df.withColumn("TX_TIME_SIN", sin((col("TIMESTAMP") % seconds_in_day) * (2 * np.pi / seconds_in_day))) \
-             .withColumn("TX_TIME_COS", cos((col("TIMESTAMP") % seconds_in_day) * (2 * np.pi / seconds_in_day))) \
-             .withColumn("TX_AMOUNT_LOG", log1p(col("TX_AMOUNT"))) \
-             .withColumn("INIT_BALANCE_LOG", log1p(col("INIT_BALANCE")))
+
+    return df.withColumn(
+        "TX_TIME_SIN",
+        sin((col("TIMESTAMP") % seconds_in_day) * (2 * np.pi / seconds_in_day))
+    ).withColumn(
+        "TX_TIME_COS",
+        cos((col("TIMESTAMP") % seconds_in_day) * (2 * np.pi / seconds_in_day))
+    ).withColumn(
+        "TX_AMOUNT_LOG",
+        log1p(col("TX_AMOUNT"))
+    ).withColumn(
+        "INIT_BALANCE_LOG",
+        log1p(col("INIT_BALANCE"))
+    )
+
+
+def add_behavioral_features(df):
+    w_sender = Window.partitionBy("SENDER_ACCOUNT_ID").orderBy("TIMESTAMP")
+    w_sender_all = Window.partitionBy("SENDER_ACCOUNT_ID")
+    w_receiver_all = Window.partitionBy("RECEIVER_ACCOUNT_ID")
+
+    df = df.withColumn("prev_ts", lag("TIMESTAMP").over(w_sender))
+
+    df = df.withColumn(
+        "time_since_last_tx",
+        when(col("prev_ts").isNull(), 999999)
+        .otherwise(col("TIMESTAMP") - col("prev_ts"))
+    )
+
+    w24 = Window.partitionBy("SENDER_ACCOUNT_ID") \
+        .orderBy("TIMESTAMP") \
+        .rangeBetween(-86400, 0)
+
+    df = df.withColumn("cnt_last_24h", count("*").over(w24))
+
+    df = df.withColumn(
+        "sender_avg_amount",
+        avg("TX_AMOUNT").over(w_sender_all)
+    )
+
+    df = df.withColumn(
+        "sender_std_amount",
+        stddev("TX_AMOUNT").over(w_sender_all)
+    )
+
+    return df
+
+
+# ============================================================
+# Pipeline
+# ============================================================
 
 def build_pipeline(df, cat_cols, num_cols):
     stages = []
 
-    indexers = [StringIndexer(inputCol=c, outputCol=f"{c}_idx", handleInvalid="keep") for c in cat_cols]
-    encoders = [OneHotEncoder(inputCol=f"{c}_idx", outputCol=f"{c}_ohe") for c in cat_cols]
+    for c in cat_cols:
+        stages.append(
+            StringIndexer(inputCol=c, outputCol=f"{c}_idx", handleInvalid="keep")
+        )
 
-    stages.extend(indexers)
-    stages.extend(encoders)
-
-    assembler = VectorAssembler(
-        inputCols=num_cols + [f"{c}_ohe" for c in cat_cols],
-        outputCol="features"
+    stages.append(
+        VectorAssembler(
+            inputCols=num_cols + [f"{c}_idx" for c in cat_cols],
+            outputCol="features"
+        )
     )
-    stages.append(assembler)
 
-    pipeline = Pipeline(stages=stages)
-    return pipeline
+    return Pipeline(stages=stages)
+
+
+# ============================================================
+# MAIN
+# ============================================================
 
 def main():
     spark = get_spark()
@@ -109,46 +167,97 @@ def main():
         "./dataset/transactions.csv",
         "./dataset/accounts.csv",
     )
-    pred = pred.withColumnRenamed("IS_FRAUD", "IS_FRAUD_pred")
-    tx = tx.withColumnRenamed("IS_FRAUD", "IS_FRAUD_tx")
-    acc = acc.withColumnRenamed("IS_FRAUD", "IS_FRAUD_acc")
 
-    print("Matching transactions...")
-    df = match_transactions(pred, tx) 
+    df = match_transactions(pred, tx)
 
-    print("Joining accounts...") 
-    df = df.join( acc.alias("a"), 
-                 col("SENDER_ACCOUNT_ID") == col("a.ACCOUNT_ID"), 
-                 how="left" ).drop("ACCOUNT_ID") 
-    
-    df = add_time_features(df) 
-    df = df.withColumn(
-        "fraud_prediction", 
-        col("fraud_prediction").cast(IntegerType())
+    a = acc.alias("a")
+
+    df = df.alias("d").join(
+        a,
+        col("d.SENDER_ACCOUNT_ID") == col("a.ACCOUNT_ID"),
+        how="left"
     )
-    num_cols = ["TX_AMOUNT_LOG", "INIT_BALANCE_LOG", "TX_TIME_SIN", "TX_TIME_COS", "score"] 
-    cat_cols = ["TX_TYPE", "ACCOUNT_TYPE", "COUNTRY", "TX_BEHAVIOR_ID", "fraud_prediction"] 
-    pipeline = build_pipeline(df, cat_cols, num_cols) 
+
+    df = df.select(
+        "d.*",
+        col("a.INIT_BALANCE"),
+        col("a.COUNTRY"),
+        col("a.ACCOUNT_TYPE"),
+        col("a.TX_BEHAVIOR_ID")
+    )
+
+    df = add_time_features(df)
+    df = add_behavioral_features(df)
+
+    df = df.withColumn("label", col("TX_IS_FRAUD").cast(IntegerType()))
+    
+    num_cols = [
+        "TX_AMOUNT_LOG",
+        "INIT_BALANCE_LOG",
+        "TX_TIME_SIN",
+        "TX_TIME_COS",
+        "score",
+        "time_since_last_tx",
+        "cnt_last_24h",
+        "sender_avg_amount",
+    ]
+
+    cat_cols = [
+        "TX_TYPE",
+        "ACCOUNT_TYPE",
+        "COUNTRY",
+    ]
+
+    pipeline = build_pipeline(df, cat_cols, num_cols)
     model = pipeline.fit(df)
+    df_transformed = model.transform(df)
 
-    df_transformed = model.transform(df) 
+    X = np.array(
+        df_transformed.select("features")
+        .rdd.map(lambda r: r[0].toArray())
+        .collect(),
+        dtype=np.float32,
+    )
 
-    df_transformed = deduplicate_columns(df_transformed)
-    df_transformed = df_transformed.drop("alert_id")
-    print("joined columns:", df_transformed.columns)
-    
-    os.makedirs(f"{MODEL_DIR}/dataframes", exist_ok=True) 
-    y = df_transformed.select("IS_FRAUD_tx").rdd.map(lambda r: r[0]).collect() 
-    np.save(f"{MODEL_DIR}/dataframes/y.npy", np.array(y, dtype=np.int32)) 
-    features = df_transformed.select("features").rdd.map(lambda r: r[0].toArray()).collect() 
-    
-    np.save(f"{MODEL_DIR}/dataframes/X.npy", np.array(features, dtype=np.float32)) 
-    
-    df_transformed.write.mode("overwrite").save(f"{MODEL_DIR}/transformed_df") 
-    
-    pipeline_path = f"{MODEL_DIR}/pipeline_spark" 
-    model.write().overwrite().save(pipeline_path) 
-    print("Batch preprocessing finished")
+    y = np.array(
+        df_transformed.select("label")
+        .rdd.map(lambda r: r[0])
+        .collect(),
+        dtype=np.int32,
+    )
+
+    # ============================================================
+    # 👉 SPLIT КАК В AMLSIM
+    # ============================================================
+
+    X_train, X_dev_test, y_train, y_dev_test = train_test_split(
+        X,
+        y,
+        train_size=0.9,
+        stratify=y,
+        random_state=SEED,
+    )
+
+    X_dev, X_test, y_dev, y_test = train_test_split(
+        X_dev_test,
+        y_dev_test,
+        train_size=0.5,
+        stratify=y_dev_test,
+        random_state=SEED,
+    )
+
+    os.makedirs(f"{MODEL_DIR}/dataframes", exist_ok=True)
+
+    np.save(f"{MODEL_DIR}/dataframes/X_train.npy", X_train)
+    np.save(f"{MODEL_DIR}/dataframes/X_dev.npy", X_dev)
+    np.save(f"{MODEL_DIR}/dataframes/X_test.npy", X_test)
+
+    np.save(f"{MODEL_DIR}/dataframes/y_train.npy", y_train)
+    np.save(f"{MODEL_DIR}/dataframes/y_dev.npy", y_dev)
+    np.save(f"{MODEL_DIR}/dataframes/y_test.npy", y_test)
+
+    print("Preprocessing finished")
+
 
 if __name__ == "__main__":
     main()

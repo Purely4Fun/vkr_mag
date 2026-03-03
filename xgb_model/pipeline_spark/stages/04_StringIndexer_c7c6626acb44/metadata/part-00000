@@ -1,1 +1,0 @@
-{"class":"org.apache.spark.ml.feature.StringIndexerModel","timestamp":1772271803745,"sparkVersion":"3.5.8","uid":"StringIndexer_c7c6626acb44","paramMap":{"handleInvalid":"keep","outputCol":"fraud_prediction_idx","inputCol":"fraud_prediction"},"defaultParamMap":{"handleInvalid":"error","outputCol":"StringIndexer_c7c6626acb44__output","stringOrderType":"frequencyDesc"}}

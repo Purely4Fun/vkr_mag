@@ -1,1 +1,0 @@
-{"class":"org.apache.spark.ml.feature.OneHotEncoderModel","timestamp":1772271804720,"sparkVersion":"3.5.8","uid":"OneHotEncoder_5c0c4f0b4c40","paramMap":{"inputCol":"TX_BEHAVIOR_ID_idx","outputCol":"TX_BEHAVIOR_ID_ohe"},"defaultParamMap":{"dropLast":true,"handleInvalid":"error","outputCol":"OneHotEncoder_5c0c4f0b4c40__output"}}
