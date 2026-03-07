@@ -215,6 +215,9 @@ def main():
         dtype=np.int32,
     )
 
+    np.save(f"{MODEL_DIR}/dataframes/main_X.npy", X) 
+    np.save(f"{MODEL_DIR}/dataframes/main_y.npy", y)
+
     X, y = oversample(X, y)
 
     X_train, X_dev_test, y_train, y_dev_test = train_test_split(
