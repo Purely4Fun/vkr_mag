@@ -12,15 +12,11 @@ from pyspark.ml.feature import StringIndexer, VectorAssembler
 from pyspark.ml import Pipeline
 
 from sklearn.model_selection import train_test_split
+from imblearn.over_sampling import SMOTE
 
 SEED = 1212
 MODEL_DIR = "./xgb_model"
 AMOUNT_EPS = 1e-6
-
-
-# ============================================================
-# Spark
-# ============================================================
 
 def get_spark():
     return (
@@ -31,21 +27,11 @@ def get_spark():
         .getOrCreate()
     )
 
-
-# ============================================================
-# Load
-# ============================================================
-
 def load_data(spark, predictions_path, transactions_path, accounts_path):
     pred = spark.read.csv(predictions_path, header=True, inferSchema=True)
     tx = spark.read.csv(transactions_path, header=True, inferSchema=True)
     acc = spark.read.csv(accounts_path, header=True, inferSchema=True)
     return pred, tx, acc
-
-
-# ============================================================
-# Matching (твоя логика)
-# ============================================================
 
 def match_transactions(pred, tx):
     pred = pred.withColumnRenamed("transaction.SENDER_ACCOUNT_ID", "SENDER_ACCOUNT_ID") \
@@ -69,18 +55,12 @@ def match_transactions(pred, tx):
         how="inner"
     )
 
-    # ✅ ЖЁСТКО формируем схему
     joined = joined.select(
         *[col(f"p.{c}").alias(c) for c in pred.columns],
         col("t.IS_FRAUD").alias("TX_IS_FRAUD")
     )
 
     return joined
-
-
-# ============================================================
-# Features (твои — без изменений)
-# ============================================================
 
 def add_time_features(df):
     seconds_in_day = 24 * 60 * 60
@@ -103,7 +83,6 @@ def add_time_features(df):
 def add_behavioral_features(df):
     w_sender = Window.partitionBy("SENDER_ACCOUNT_ID").orderBy("TIMESTAMP")
     w_sender_all = Window.partitionBy("SENDER_ACCOUNT_ID")
-    w_receiver_all = Window.partitionBy("RECEIVER_ACCOUNT_ID")
 
     df = df.withColumn("prev_ts", lag("TIMESTAMP").over(w_sender))
 
@@ -131,11 +110,6 @@ def add_behavioral_features(df):
 
     return df
 
-
-# ============================================================
-# Pipeline
-# ============================================================
-
 def build_pipeline(df, cat_cols, num_cols):
     stages = []
 
@@ -153,10 +127,24 @@ def build_pipeline(df, cat_cols, num_cols):
 
     return Pipeline(stages=stages)
 
+def oversample(X, y):
+    print("\nBefore oversampling:")
+    unique, counts = np.unique(y, return_counts=True)
+    print(dict(zip(unique, counts)))
 
-# ============================================================
-# MAIN
-# ============================================================
+    smote = SMOTE(
+        sampling_strategy=0.7, 
+        random_state=SEED,
+        k_neighbors=5
+    )
+
+    X_res, y_res = smote.fit_resample(X, y)
+
+    print("\nAfter oversampling:")
+    unique, counts = np.unique(y_res, return_counts=True)
+    print(dict(zip(unique, counts)))
+
+    return X_res, y_res
 
 def main():
     spark = get_spark()
@@ -210,6 +198,7 @@ def main():
 
     pipeline = build_pipeline(df, cat_cols, num_cols)
     model = pipeline.fit(df)
+    model.write().overwrite().save(f"{MODEL_DIR}/pipeline")
     df_transformed = model.transform(df)
 
     X = np.array(
@@ -226,9 +215,7 @@ def main():
         dtype=np.int32,
     )
 
-    # ============================================================
-    # 👉 SPLIT КАК В AMLSIM
-    # ============================================================
+    X, y = oversample(X, y)
 
     X_train, X_dev_test, y_train, y_dev_test = train_test_split(
         X,
@@ -247,7 +234,6 @@ def main():
     )
 
     os.makedirs(f"{MODEL_DIR}/dataframes", exist_ok=True)
-
     np.save(f"{MODEL_DIR}/dataframes/X_train.npy", X_train)
     np.save(f"{MODEL_DIR}/dataframes/X_dev.npy", X_dev)
     np.save(f"{MODEL_DIR}/dataframes/X_test.npy", X_test)
