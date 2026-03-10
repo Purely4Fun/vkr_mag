@@ -5,7 +5,7 @@ import io
 MINIO_ENDPOINT = "127.0.0.1:9000"
 MINIO_ACCESS_KEY = "minio"
 MINIO_SECRET_KEY = "minio123"
-BUCKET_NAME = "transactions-bucket"
+BUCKET_NAME = "speed-layer"
 
 minio_client = Minio(
     MINIO_ENDPOINT,

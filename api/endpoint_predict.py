@@ -34,7 +34,7 @@ def score_transaction(tx: Transaction):
     enriched_payload = build_features(enriched_payload)
 
     is_fraud, score, threshold = predict(enriched_payload)
-    tx_id, alert_id = save_transaction(tx, is_fraud, score)
+    tx_id, alert_id = save_transaction(tx, is_fraud)
 
     s3_payload = {
         "tx_id": str(tx_id),

@@ -1,4 +1,14 @@
 import model
+from pyspark.sql import SparkSession
+
+def get_spark():
+    return (
+        SparkSession.builder
+        .appName("FraudInference")
+        .master("local[*]")
+        .config("spark.sql.shuffle.partitions", "8")
+        .getOrCreate()
+    )
 
 def build_payload(i=0):
     return {
@@ -19,13 +29,13 @@ def build_payload(i=0):
     }
 
 
-def test_single_transaction():
+def test_single_transaction(spark):
 
     payload = build_payload()
 
     print("\n=== SINGLE TRANSACTION TEST ===")
 
-    result = model.predict(payload)
+    result = model.predict(payload,spark)
 
     print("Payload:")
     print(payload)
@@ -34,12 +44,12 @@ def test_single_transaction():
     print(result)
 
 
-def test_batch_transactions():
+def test_batch_transactions(spark):
     payloads = [build_payload(i) for i in range(5)]
 
     print("\n=== BATCH TEST (5 TRANSACTIONS) ===")
 
-    results = model.predict_batch(payloads)
+    results = model.predict_batch(payloads,spark)
     for i, (p, r) in enumerate(zip(payloads, results)):
         print(f"\nTransaction {i+1}")
         print("Payload:", p)
@@ -47,9 +57,9 @@ def test_batch_transactions():
 
 
 def main():
-
-    test_single_transaction()
-    test_batch_transactions()
+    spark = get_spark()
+    test_single_transaction(spark)
+    test_batch_transactions(spark)
 
 if __name__ == "__main__":
     main()

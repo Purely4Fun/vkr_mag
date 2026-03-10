@@ -1,0 +1,19 @@
+MODEL_DIR = "./xgb_model"
+
+S3_ENDPOINT = "localhost:9000"
+S3_ACCESS_KEY = "minio"
+S3_SECRET_KEY = "minio123"
+
+S3_TRANSACTIONS_BUCKET = "speed-layer"
+S3_BATCH_BUCKET = "batch-layer"
+
+CASSANDRA_HOSTS = ["localhost"]
+CASSANDRA_KEYSPACE = "batch_layer"
+
+SPARK_PARALLELISM = 200
+CASSANDRA_BATCH_SIZE = 500
+
+MODE = "s3"  # "s3" | "local"
+
+BATCH_SIZE = 500
+SPARK_PARTITIONS = 500
