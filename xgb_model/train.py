@@ -3,7 +3,15 @@ import pickle
 import numpy as np
 import xgboost as xgb
 
-from sklearn.metrics import f1_score, make_scorer, confusion_matrix
+from sklearn.metrics import (
+    precision_score,
+    recall_score,
+    f1_score,
+    confusion_matrix,
+    make_scorer,
+    accuracy_score,
+    roc_auc_score
+)
 from sklearn.model_selection import RandomizedSearchCV
 
 MODEL_DIR = "./xgb_model"
@@ -119,6 +127,11 @@ def train_final(X_train, y_train, X_dev, y_dev, X_test, y_test, use_loaded_model
     print("f1 fraud:", f1_score(y_test, y_pred, average="binary", pos_label=1))
     print("f1 macro:", f1_score(y_test, y_pred, average="macro"))
     print("Confusion matrix:\n", confusion_matrix(y_test, y_pred))
+    print("Precision: ",precision_score(y_test, y_pred, zero_division=0))
+    print("Recall: ",recall_score(y_test, y_pred, zero_division=0))
+    print("F1: ",f1_score(y_test, y_pred, zero_division=0))
+    print("RocAuc: ",roc_auc_score(y_test, y_pred))
+    print("Accuracy: ",accuracy_score(y_test, y_pred))
 
     with open(f"{MODEL_DIR}/xgb_model.pickle", "wb") as f:
         pickle.dump(xgb_model, f)

@@ -16,7 +16,7 @@ from fastapi import FastAPI, HTTPException
 from datetime import datetime, timezone
 from api.entity import get_account, Transaction, save_transaction
 from gam_model.model import predict, build_features  
-from s3.storage import save_transaction_to_s3
+#from s3.storage import save_transaction_to_s3
 
 app = FastAPI(title="Financial Monitoring Speed Layer")
 
@@ -34,10 +34,11 @@ def score_transaction(tx: Transaction):
     enriched_payload = build_features(enriched_payload)
 
     is_fraud, score, threshold = predict(enriched_payload)
-    tx_id, alert_id = save_transaction(tx, is_fraud)
+    tx_id, alert_id = None, None
+    #tx_id, alert_id = save_transaction(tx, is_fraud)
 
     s3_payload = {
-        "tx_id": str(tx_id),
+        "tx_id": str(tx_id) if tx_id else None,
         "alert_id": str(alert_id) if alert_id else None,
         "transaction": tx.model_dump(),
         "fraud_prediction": bool(is_fraud),
@@ -46,6 +47,6 @@ def score_transaction(tx: Transaction):
         "prediction_timestamp": datetime.now(timezone.utc).isoformat()
     }
 
-    save_transaction_to_s3(str(tx_id), s3_payload)
+    #save_transaction_to_s3(str(tx_id), s3_payload)
 
     return s3_payload

@@ -12,6 +12,7 @@ from api.entity import get_account, Transaction, save_transaction
 from gam_model.model import predict, build_features
 from s3.storage import save_transaction_to_s3
 from kafka_adapters.producer import send_prediction
+import time
 
 KAFKA_BROKER = "localhost:9094"
 INPUT_TOPIC = "transactions"
@@ -61,10 +62,11 @@ def start():
     for msg in consumer:
         try:
             message = msg.value
-            print(f"Received: {message}")
+            start_time = time.time()
             result = process_transaction(message)
+            latency = time.time() - start_time
+            print(f"LATENCY: {latency:.6f}")
             send_prediction(result)
-            print("Prediction sent")
 
         except Exception as e:
             print(f"Error processing message: {e}")

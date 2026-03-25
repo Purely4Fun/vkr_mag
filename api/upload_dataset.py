@@ -21,16 +21,12 @@ MAX_S3_THREADS = 4
 account_cache = {}
 queue = None
 
-
-# -------------------- INIT WORKER --------------------
 def init_process(progress_queue):
     global account_cache, queue
     account_cache = {}
     queue = progress_queue
     init_cassandra()
 
-
-# -------------------- PROCESS CHUNK --------------------
 def process_chunk(chunk_df):
     global account_cache, queue
 
@@ -119,15 +115,13 @@ def process_chunk(chunk_df):
 
     except Exception as e:
         print(f"FATAL in worker: {e}", flush=True)
-        return []  # 🔥 ВАЖНО — никогда не падаем наружу
+        return []  
     
-# -------------------- CHUNK GENERATOR --------------------
 def chunk_generator():
     for chunk in pd.read_csv(CSV_PATH, chunksize=CHUNK_SIZE):
         yield chunk
 
 
-# -------------------- PROGRESS LISTENER --------------------
 def progress_listener(progress_queue, total_rows):
     with tqdm(total=total_rows, desc="Обработка", unit="тр.") as pbar:
         while True:
@@ -140,7 +134,6 @@ def progress_listener(progress_queue, total_rows):
                 pbar.update(value)
 
 
-# -------------------- MAIN --------------------
 def main_parallel():
     start_time = time.time()
 
@@ -167,8 +160,6 @@ def main_parallel():
         initializer=init_process,
         initargs=(progress_queue,),
     ) as pool:
-
-        # ⚡ потоковая обработка (без list!)
         for chunk_results in pool.imap_unordered(
             process_chunk, chunk_generator()
         ):
