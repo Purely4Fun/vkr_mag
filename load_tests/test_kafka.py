@@ -17,7 +17,7 @@ def generate_tx():
         "TIMESTAMP": int(time.time())
     }
 
-RATE = 100       
+RATE = 500       
 DURATION = 60    
 
 interval = 1 / RATE

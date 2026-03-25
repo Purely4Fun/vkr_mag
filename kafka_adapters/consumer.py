@@ -42,7 +42,7 @@ def process_transaction(message: dict) -> dict:
     enriched_payload = build_features(enriched_payload)
     is_fraud, score, threshold = predict(enriched_payload)
 
-    tx_id, alert_id = save_transaction(tx, is_fraud, score)
+    tx_id, alert_id = save_transaction(tx, is_fraud)
     result_payload = {
         "tx_id": str(tx_id),
         "alert_id": str(alert_id) if alert_id else None,
