@@ -233,5 +233,3 @@ docker-compose stop
 * Kafka topic (`transactions`) must exist or be auto-created
 * MinIO must be accessible before running batch jobs
 * Spark jobs require correct `PYTHONPATH`
-* сделать **более “enterprise” README (с диаграммой архитектуры)**
-* или **добавить badges + CI/CD + Makefile**
